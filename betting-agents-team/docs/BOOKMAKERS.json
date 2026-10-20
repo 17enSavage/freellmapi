@@ -1,0 +1,5 @@
+{
+  "enforce": true,
+  "available": [],
+  "note": "ЗАПОЛНИТЬ: букмекеры (в написании таблицы odds), в которых у вас есть счёт. Применяется ТОЛЬКО при docs/STAGE.json real_money=true: тогда кандидат с линией вне списка получает вето. В режиме БУМАГА — только метка line_not_bettable. Pinnacle, market_max, market_avg, understat_model сюда не вносить, если по ним нельзя поставить."
+}
