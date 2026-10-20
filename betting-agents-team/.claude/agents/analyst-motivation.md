@@ -25,9 +25,11 @@ maxTurns: 12
 
 Запросить турнирную таблицу и календарь:
 ```bash
-python3 pipeline/db.py table --league EPL --season 2025
-python3 pipeline/db.py fixtures --team "Arsenal" --days 14
+python3 pipeline/db.py table --league EPL --season 2026
+python3 pipeline/db.py fixtures --team "arsenal" --days 14
 ```
+
+Сезон — текущий по `CONTRACTS.md` (октябрь 2026 → `2026`), команды — канонические строчными, лиги — `EPL`, `La_liga`, `Bundesliga`, `Serie_A`, `Ligue_1`, `RFPL`. Ротацию из-за отсутствий игроков **не учитывать** — это `analyst-injury` (двойной учёт).
 
 | Ситуация | Множитель на атаку | Комментарий |
 |---|---|---|

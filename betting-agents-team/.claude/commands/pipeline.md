@@ -1,5 +1,5 @@
 ---
-description: Запуск конвейера прогнозов. Аргументы: daily | weekly | backtest --league EPL | status | validate --gate GATE_2
+description: Запуск конвейера прогнозов. Аргументы: daily | weekly | backtest --all | status | validate --gate GATE_2|GATE_5_BET_SLIP
 allowed-tools: Task, Read, Bash, Glob, Write
 ---
 
@@ -22,9 +22,9 @@ allowed-tools: Task, Read, Bash, Glob, Write
 |---|---|
 | `daily` | Полный конвейер: шаги 0–11 из его промта |
 | `weekly` | `daily` + обязательный вызов `backtester` с недельным регрессионным контролем |
-| `backtest --league X --seasons Y` | Только `backtester`, без сбора данных и без ставок |
+| `backtest --all --seasons Y` | Только `backtester`, без сбора данных и без ставок |
 | `status` | Только чтение: `python3 pipeline/db.py status` и `python3 pipeline/value.py bank-status`, вывод таблицей. Агентов не вызывать |
-| `validate --gate GATE_N` | Только `contract-validator` на указанном гейте |
+| `validate --gate GATE_N` | Только `contract-validator` на указанном гейте (`GATE_1`…`GATE_4`, `GATE_5_BET_SLIP`) |
 
 ## Обязательная финальная проверка
 

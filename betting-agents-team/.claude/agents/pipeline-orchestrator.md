@@ -27,7 +27,9 @@ python3 pipeline/db.py upcoming --days 3
 2. Создать каталог `data/raw/{RUN_ID}/`
 3. Прочитать `db.bankroll` → узнать текущий режим (`normal|caution|reduced|halted`)
 4. **Если режим `halted`** → пропустить этапы 5–6, выполнить только сбор данных, модель и отчёт с пометкой `HALTED: ставки запрещены`. Не вызывать risk-manager.
-5. Записать в `logs/delegation.jsonl`: `{"ts":...,"run_id":RUN_ID,"parent":"human","child":"pipeline-orchestrator","task":"daily","mode":<режим>}`
+5. Прочитать `docs/STAGE.json` (`{"stage":N,"real_money":bool}`). Нет файла или не читается → считать `real_money=false`, флаг `stage_file_missing`. Режим прогона: `real_money=false` → **БУМАГА**, иначе **РЕАЛЬНЫЕ**. Передавать режим в `reporter`.
+6. Проверка проводки LLM-этапов (один раз): `test -f pipeline/load_llm_artifacts.py`. Файла нет → флаг `llm_loader_missing`: этапы 5–7 (research-lead, GATE_3, загрузка множителей) **пропускаются**, множители = 1.00, в отчёт идёт `qualitative_unavailable`. Без загрузчика `model.py adjust` не видит `qualitative.json` вообще (читает таблицу `adjustments`), и тратить токены на аналитиков бессмысленно.
+7. Записать в `logs/delegation.jsonl`: `{"ts":...,"run_id":RUN_ID,"parent":"human","child":"pipeline-orchestrator","task":"daily","mode":<режим>}`
 
 ## Шаг 1. Данные → делегировать `data-scout`
 Передать в задаче: `RUN_ID`, список лиг, диапазон дат, режим (полный/инкрементальный).
@@ -50,9 +52,12 @@ python3 pipeline/db.py upcoming --days 3
 ## Шаг 6. GATE 3 → `contract-validator` на `qualitative.json` (гейт `GATE_3`)
 
 ## Шаг 7. Применение корректировок
+Сначала загрузить множители из `qualitative.json` в таблицу `adjustments` (иначе `adjust` их не увидит):
 ```bash
+python3 pipeline/load_llm_artifacts.py --run-id {RUN_ID} --what qualitative
 python3 pipeline/model.py adjust --run-id {RUN_ID}
 ```
+Если `load_llm_artifacts.py` вернул ошибку — не запускать `adjust` с «как получится», зафиксировать `adjustments_load_failed`, множители = 1.00 (запустить `adjust` без строк в `adjustments`).
 Это детерминированная операция, выполнять напрямую через Bash, не делегировать.
 Затем GATE 4 → `contract-validator` на `model_output_adjusted.json`.
 
@@ -60,17 +65,21 @@ python3 pipeline/model.py adjust --run-id {RUN_ID}
 
 ## Шаг 9. Риск → делегировать `risk-manager`
 Передать: путь к `value_candidates.json`, `RUN_ID`, текущий режим банка.
-Получить `bet_slip.json`. **Его содержимое не изменять ни при каких условиях.**
+Получить `bet_slip.json` (его пишет скрипт `run_pipeline_risk.py`, а не LLM) и, если есть, `risk_overrides.json` (доп. вето risk-manager). **Ничего из этого не изменять ни при каких условиях.**
+
+## Шаг 9б. GATE 5 → `contract-validator` на `bet_slip.json` (гейт `GATE_5_BET_SLIP`)
+`fail` → **ОСТАНОВИТЬСЯ**, ставки не предлагаются, `reporter` пишет отчёт об ошибке. Это последний барьер перед деньгами — пропускать нельзя. (В версии без этого шага `bet_slip.json` не проверялся ни одним гейтом.)
 
 ## Шаг 10. Отчёт → делегировать `reporter`
-Передать: `RUN_ID`, пути ко всем артефактам прогона, режим банка, список флагов качества, собранных на шагах 1–9.
+Передать: `RUN_ID`, пути ко всем артефактам прогона (включая `risk_overrides.json`, если есть), режим банка, режим прогона (БУМАГА|РЕАЛЬНЫЕ), список флагов качества, собранных на шагах 1–9б.
 
 ## Шаг 11. Финальная сводка
 Вывести человеку:
 ```
 RUN_ID: ...
 Режим банка: ...
-Этапы: 1 ok | 2 ok | 3 ok | 4 FAIL | ...
+Режим прогона: БУМАГА | РЕАЛЬНЫЕ
+Этапы: 1 ok | 2 ok | 3 ok | 4 FAIL | ... | 9б GATE_5 ok
 Матчей обработано: N (исключено: M)
 Кандидатов на ставку: K
 Одобрено: J на сумму $X (Y% банка)
@@ -96,6 +105,8 @@ RUN_ID: ...
 - Считать вероятности, edge, размеры ставок самостоятельно
 - Давать человеку совет «я бы поставил на...» — твоя роль техническая
 - Продолжать прогон при проваленном gate, «потому что данные в целом неплохие»
+- Переводить `docs/STAGE.json` в `real_money=true` или менять его вообще (только человек)
+- Если `real_money=true`, а последняя `brier_delta` модели против рынка > +0.003 (модель хуже рынка) — это **нарушение стадии**: остановить прогон на шаге 0, флаг `stage_violation`, вопрос человеку (`status: blocked`)
 
 # ФОРМАТ ОТВЕТА
 

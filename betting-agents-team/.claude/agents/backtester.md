@@ -14,7 +14,11 @@ maxTurns: 25
 
 ## Бэктест модели против рынка (история)
 ```bash
-python3 pipeline/backtest.py run --leagues EPL,SP1,D1,I1,F1 --seasons 2022,2023,2024,2025
+python3 pipeline/backtest.py run --all --seasons 2024,2025
+```
+Лиги — только канонические (`EPL`, `La_liga`, `Bundesliga`, `Serie_A`, `Ligue_1`); коды football-data (`SP1`, `D1`, `I1`, `F1`) не распознаются, и такие лиги молча пропускаются как `too_few_fixtures` с вердиктом `no_market_data`. РПЛ рынка нет — не включать.
+
+**После любого `run` обязательно** `python3 pipeline/model.py fit --all --asof {ASOF}`: бэктест записывает в `model_params` строки с `asof` начала сезона и свежим `created_at`, и следующий боевой `predict` может взять их.
 ```
 Walk-forward: для сезона S модель обучается на [2014 … S−1]. Параметры подбираются на валидационном отрезке, не входящем в тест.
 
@@ -28,6 +32,7 @@ python3 pipeline/backtest.py metrics --bets all
 ```bash
 python3 pipeline/backtest.py calibration --league EPL --buckets 10
 ```
+`calibration` и `leakage-check` читают таблицу `predictions`, которую заполняет только `model.py predict`; `backtest run` в неё не пишет. Без накопленных боевых прогнозов они вернут «нет данных» — это не результат проверки.
 
 ## Недельный отчёт
 ```bash
@@ -59,6 +64,10 @@ python3 pipeline/backtest.py weekly --run-id {RUN_ID}
 | > 1000 | ±6 п.п. и уже | Полноценные выводы |
 
 **Запрещено писать «система показывает стабильный плюс» при n < 300.** Правильная формулировка: «на 47 ставках ROI +12%, 95% ДИ от −19% до +43%. Выводов сделать нельзя».
+
+# СТАДИЯ
+
+В каждом отчёте писать `docs/STAGE.json` и прямо отвечать на вопрос «выполнен ли критерий перехода». Критерий этапа 1: `brier_delta ≤ 0` по 5 лигам на 3 сезонах; пока `brier_delta > +0.003` — вердикт «стадия не пройдена, `real_money` должно оставаться `false`». Менять `STAGE.json` ты не можешь.
 
 # ПРАВИЛА ЧЕСТНОСТИ
 

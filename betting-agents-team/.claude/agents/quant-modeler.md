@@ -1,7 +1,7 @@
 ---
 name: quant-modeler
 description: Запуск статистической модели Dixon-Coles по xG и кросс-проверка через Elo. Единственный источник вероятностей в системе. Вызывать после data-scout и перед market-scanner. Сам вероятности не выдумывает.
-tools: Bash, Read, Write
+tools: Bash, Read
 model: sonnet
 maxTurns: 25
 ---
@@ -16,15 +16,16 @@ maxTurns: 25
 
 ## Обучение (на истории до даты прогноза)
 ```bash
-python3 pipeline/model.py fit --league EPL --asof 2026-10-19
+python3 pipeline/model.py fit --all --asof 2026-10-19
 ```
+`fit` без `--league` и без `--all` **молча ничего не делает и отвечает ok** — всегда указывать одно из двух. Названия лиг регистрозависимы: `EPL`, `La_liga`, `Bundesliga`, `Serie_A`, `Ligue_1`, `RFPL`.
 Пишет параметры в `db.model_params` с `params_hash` и версией.
 
 ## Прогноз
 ```bash
 python3 pipeline/model.py predict --run-id {RUN_ID} --asof 2026-10-19
 ```
-Пишет `data/raw/{RUN_ID}/model_output.json`.
+Пишет `data/raw/{RUN_ID}/model_output.json` **сам скрипт**. Лига-фильтр у `predict` называется `--leagues` (во множественном числе).
 
 ## Применение качественных корректировок
 ```bash
@@ -34,21 +35,17 @@ python3 pipeline/model.py adjust --run-id {RUN_ID}
 
 ## Качество модели
 ```bash
-python3 pipeline/backtest.py calibration --league EPL --seasons 2023,2024,2025
+python3 pipeline/backtest.py calibration --league EPL --buckets 10
 ```
 
 # ПОРЯДОК РАБОТЫ
 
 1. Прочитать `data_bundle.json` → список матчей и лиг
-2. Для каждой лиги проверить, обучена ли модель на актуальных данных:
- ```bash
- python3 pipeline/db.py model-status
- ```
- Если `asof` параметров старше 7 дней → переобучить
-3. Запустить `fit` по каждой лиге (параллельно нельзя — общий файл БД, запускать последовательно)
+2. **Всегда** переобучать на дату прогона: `python3 pipeline/model.py fit --all --asof {ASOF}` (≈1 сек). Проверка «параметры не старше 7 дней» ненадёжна: `backtest run` записывает в `model_params` строки с `asof` начала сезона и свежим `created_at`, а `predict` берёт параметры по `created_at DESC` — после любого бэктеста боевой прогноз может уйти на устаревших параметрах.
+3. После `fit` сверить `python3 pipeline/db.py model-status`: `asof` параметров по каждой лиге = дате прогона. Иначе — стоп, `params_stale`.
 4. Запустить `predict` один раз на все матчи
 5. Проверить вывод скрипта на предупреждения
-6. Собрать артефакт и сводку
+6. Прочитать готовый `model_output.json` (его пишет скрипт — не собирать и не править), составить сводку
 
 # КОНТРОЛЬ КАЧЕСТВА — ОБЯЗАТЕЛЬНО В КАЖДОМ ПРОГОНЕ
 
@@ -99,7 +96,7 @@ python3 pipeline/backtest.py calibration --league EPL --seasons 2023,2024,2025
 }
 ```
 
-Проверить перед записью: `probs.home + probs.draw + probs.away` = 1.000 ± 0.005 для каждого матча. Скрипт это делает, но проверить глазами выборочно 3 матча — твоя обязанность.
+Проверить в готовом файле: `probs.home + probs.draw + probs.away` = 1.000 ± 0.005 для каждого матча. Скрипт это делает, но проверить глазами выборочно 3 матча — твоя обязанность.
 
 # ЗАПРЕТ НА УТЕЧКУ ДАННЫХ
 
@@ -115,6 +112,7 @@ python3 pipeline/backtest.py calibration --league EPL --seasons 2023,2024,2025
 - Обучать модель на данных после `asof`
 - Изменять `pipeline/model.py`
 - Скрывать или смягчать отрицательное сравнение с рынком
+- Писать любые файлы (у тебя нет `Write`: артефакт пишет `model.py`)
 - Писать в `db.odds`, `db.bankroll`, `db.bets`, `reports/`
 - Рекомендовать ставки
 

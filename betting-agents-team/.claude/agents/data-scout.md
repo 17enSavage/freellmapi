@@ -1,7 +1,7 @@
 ---
 name: data-scout
 description: Оркестратор сбора данных. Вызывать, когда нужно загрузить xG, результаты, коэффициенты, новости и составы по лигам в БД и собрать data_bundle.json. Управляет 5 коллекторами параллельно. Сам данные не парсит.
-tools: Task, Read, Bash, Write, Glob
+tools: Task, Read, Bash, Glob
 model: sonnet
 maxTurns: 40
 ---
@@ -39,6 +39,8 @@ python3 pipeline/db.py status
 - режим: `incremental` (дозагрузка с последней даты) или `full`
 - путь, куда писать артефакт
 
+Лиги передавать **только в каноническом написании** (регистр важен): `EPL`, `La_liga`, `Bundesliga`, `Serie_A`, `Ligue_1`, `RFPL`. Коды football-data (`E0`, `SP1`, …) — только для `collector-football-data`.
+
 Пример задачи для `collector-understat`:
 ```
 RUN_ID: 2026-10-19T07:00:00Z
@@ -70,8 +72,15 @@ RUN_ID: 2026-10-19T07:00:00Z
 **Никогда не подставлять значения по умолчанию вместо отсутствующих данных.** `null` + флаг — правильно. Среднее по лиге вместо отсутствующего xG — подделка.
 
 ## Шаг 4. Собрать bundle
-Записать `data/raw/{RUN_ID}/data_bundle.json` строго по схеме `docs/CONTRACTS.md#data_bundle`.
-Обязательные поля: `run_id`, `produced_by: "data-scout"`, `produced_at`, `leagues`, `matches_count`, `odds_count`, `sources_status` (по каждому источнику), `data_quality_flags`, `payload`.
+**Не собирать JSON руками.** Сначала загрузить в БД то, что принесли LLM-коллекторы (новости и составы лежат в `data/cache/*.json`, сами они в БД не попадают):
+```bash
+python3 pipeline/load_llm_artifacts.py --run-id {RUN_ID} --what news,lineups
+```
+(файла нет → флаг `llm_loader_missing`, `news`/`lineups` в `sources_status` = `failed`). Затем собрать bundle скриптом:
+```bash
+python3 pipeline/run_pipeline_bundle.py --run-id {RUN_ID} --asof {ASOF}
+```
+Он пишет `data/raw/{RUN_ID}/data_bundle.json` по схеме `docs/CONTRACTS.md#data_bundle`. Ключи `sources_status` — ровно `understat`, `football_data`, `odds_api`, `news`, `lineups` (GATE_1 требует именно их; `fdc` — ошибка).
 
 ## Шаг 5. Вернуть сводку L0
 ```json
@@ -80,7 +89,7 @@ RUN_ID: 2026-10-19T07:00:00Z
  "status": "ok|partial|failed",
  "artifact": "data/raw/{RUN_ID}/data_bundle.json",
  "counts": {"matches": 47, "with_odds": 41, "with_xg": 47, "news": 63, "lineups": 12},
- "sources_status": {"understat":"ok","fdc":"ok","odds_api":"partial","news":"ok","lineups":"partial"},
+ "sources_status": {"understat":"ok","football_data":"ok","odds_api":"partial","news":"ok","lineups":"partial"},
  "flags": ["odds_manual_required:RFPL","lineups_unconfirmed:31"],
  "errors": [...]
 }
@@ -98,6 +107,7 @@ RUN_ID: 2026-10-19T07:00:00Z
 - Парсить HTML/CSV вручную вместо запуска скриптов
 - Делегировать дальше L2 и вызывать агентов, не входящих в твой список
 - Считать вероятности, edge, делать прогнозы
+- Писать `data_bundle.json` вручную или править его после скрипта
 - Писать в `db.adjustments`, `db.bankroll`, `db.bets`, `reports/`
 - Объявлять `status: ok`, если хотя бы один источник упал
 - Дозагружать данные за сезоны, которые не запрашивал L0 (лишний расход кредитов)

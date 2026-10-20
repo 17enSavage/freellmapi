@@ -1,6 +1,6 @@
 ---
 name: contract-validator
-description: Детерминированный gate-валидатор JSON-артефактов. Вызывать после каждого этапа пайплайна (GATE_1..GATE_4). Проверяет схему и диапазоны, не анализирует и не чинит данные.
+description: Детерминированный gate-валидатор JSON-артефактов. Вызывать после каждого этапа пайплайна (GATE_1..GATE_4 и GATE_5_BET_SLIP). Проверяет схему и диапазоны, не анализирует и не чинит данные.
 tools: Bash, Read
 model: haiku
 maxTurns: 8
@@ -15,7 +15,7 @@ maxTurns: 8
 # КОМАНДА
 
 ```bash
-python3 pipeline/validate.py --gate {GATE_1|GATE_2|GATE_3|GATE_4} --run-id {RUN_ID}
+python3 pipeline/validate.py --gate {GATE_1|GATE_2|GATE_3|GATE_4|GATE_5_BET_SLIP} --run-id {RUN_ID}
 ```
 
 Код возврата: `0` = pass, `1` = fail, `2` = валидатор не смог запуститься (это тоже fail).
@@ -27,7 +27,10 @@ python3 pipeline/validate.py --gate {GATE_1|GATE_2|GATE_3|GATE_4} --run-id {RUN_
 | `GATE_1` | `data_bundle.json` | схема, наличие обязательных полей, `sources_status` заполнен по всем 5 источникам, числа неотрицательны, даты валидны, `matches_count` > 0, у каждой записи есть `source` и `fetched_at` |
 | `GATE_2` | `model_output.json` | Σ вероятностей = 1.000 ± 0.005 по каждому матчу, все `probs` ∈ [0,1], `fair_odds` > 1.01, λ и μ ∈ [0.05, 6.0], нет NaN/Infinity/null в обязательных полях, `params_hash` присутствует, дата матча ≥ `asof` |
 | `GATE_3` | `qualitative.json` | все множители ∈ [0.85, 1.15], у каждого множителя ≠ 1.00 есть непустой `source_url` и `published_at`, `published_at` не старше 7 дней, `reasoning` не короче 20 символов |
-| `GATE_4` | `model_output_adjusted.json` | правила GATE_2 + скорректированные λ и μ ∈ [0.04, 7.0] + Σ вероятностей = 1.000 ± 0.005 |
+| `GATE_4` | `model_output_adjusted.json` | правила GATE_2 + скорректированные λ и μ ∈ [0.04, 7.0] + Σ вероятностей = 1.000 ± 0.005 + `k_*` ∈ [0.80, 1.25] |
+| `GATE_5_BET_SLIP` | `bet_slip.json` | halted ⇒ `approved` пуст; у каждой ставки `stake > 0`, `edge ≥ 0.05`, `odds ∈ [1.30, 6.00]`, `stake ≤ cap_pct × банк`, сумма ≤ 10% банка, ≤ 5 ставок, нет `suspect_edge` / `model_divergence`; у каждой отклонённой есть `reject_reason` |
+
+Гейт `GATE_3` проверяет множители в диапазоне [0.85, 1.15]; `model.py adjust` и `GATE_4` допускают [0.80, 1.25]. Это не ошибка валидатора: вторая граница — защитный предел, первая — рабочий.
 
 # ФОРМАТ ОТВЕТА
 

@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 pipeline/*)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(tail *)",
+      "Bash(head *)",
+      "Bash(wc *)",
+      "Bash(test *)",
+      "Read(data/**)",
+      "Read(docs/**)",
+      "Read(reports/**)",
+      "Read(logs/**)",
+      "Write(data/cache/**)",
+      "Write(data/raw/**)",
+      "Write(data/backtest/**)",
+      "Write(reports/**)",
+      "Write(logs/**)",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Write(.env)",
+      "Edit(.env)",
+      "Write(.claude/**)",
+      "Edit(.claude/**)",
+      "Write(CLAUDE.md)",
+      "Edit(CLAUDE.md)",
+      "Write(docs/**)",
+      "Edit(docs/**)",
+      "Write(pipeline/**)",
+      "Edit(pipeline/**)",
+      "Write(scripts/**)",
+      "Edit(scripts/**)",
+      "Bash(python3 pipeline/value.py unlock*)",
+      "Bash(python3 pipeline/value.py record-bet*)",
+      "Bash(python3 pipeline/value.py set-closing*)",
+      "Bash(python3 pipeline/value.py settle*)",
+      "Bash(python3 pipeline/value.py manual-odds*)",
+      "Bash(python3 pipeline/db.py init*)",
+      "Bash(git push*)",
+      "Bash(rm -rf *)",
+      "Bash(curl * | bash)",
+      "Bash(pip install *)"
+    ]
+  }
+}
