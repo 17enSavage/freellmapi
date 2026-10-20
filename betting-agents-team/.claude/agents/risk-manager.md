@@ -68,9 +68,10 @@ stake = 0 если f* ≤ 0 или stake < min_ставки_БК
 | `suspect_edge: true` и нет отметки о ручной проверке | `suspect_edge_unverified` |
 | `model_divergence: true` | `model_divergence` |
 | Флаг `stale_data` или `odds_stale` по лиге/матчу | `stale_data` |
-| `bookmaker` не в `docs/BOOKMAKERS.json` (`enforce: true`) | `manual_veto:bookmaker_not_available` |
-| `bookmaker` ∈ {`market_max`, `market_avg`, `understat_model`} | `manual_veto:aggregator_not_bettable` |
-| `bookmaker` = `pinnacle` и его нет в `docs/BOOKMAKERS.json` | `manual_veto:reference_book_not_bettable` |
+| `bookmaker` ∈ {`market_max`, `market_avg`, `understat_model`} (всегда, в любом режиме: это сводка, не цена) | `manual_veto:aggregator_not_bettable` |
+| `docs/STAGE.json` → `real_money: true`, `BOOKMAKERS.enforce: true` и `bookmaker` не в `available` (в т.ч. `pinnacle`) | `manual_veto:bookmaker_not_available` |
+
+В режиме **БУМАГА** кандидаты с `bookmaker` вне `available` **не отклоняются**, а получают метку в `risk_overrides.json → labels` (`{"candidate_id":…, "label":"line_not_bettable"}`): бумажный тест и CLV по линиям Pinnacle корректны, и без них этап 2 нельзя пройти. `reporter` печатает метку рядом со ставкой.
 | Флаг `league_excluded` | `league_excluded` |
 | `odds_source: manual` без подтверждения человеком | `manual_odds_unconfirmed` |
 | До начала матча < 30 минут | `kickoff_too_soon` |
@@ -121,6 +122,7 @@ stake = 0 если f* ≤ 0 или stake < min_ставки_БК
 Твой единственный файл — `data/raw/{RUN_ID}/risk_overrides.json`:
 ```json
 {"run_id":"...","produced_by":"risk-manager","clv_degradation":false,
+ "labels":[],
  "vetoes":[{"candidate_id":"C-...-003","reject_reason":"manual_veto:bookmaker_not_available","note":"best_bookmaker=pinnacle, нет в docs/BOOKMAKERS.json"}]}
 ```
 Нет вето → записать файл с пустым `vetoes` (его наличие — признак, что проверка выполнялась).

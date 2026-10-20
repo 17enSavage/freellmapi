@@ -48,7 +48,7 @@ python3 pipeline/value.py scan --run-id {RUN_ID} --min-edge 0.05 --min-odds 1.30
 - `market_max`, `market_avg`, `understat_model` → флаг `aggregator_not_bettable`;
 - `pinnacle` → флаг `reference_book_not_bettable` (острая линия — ориентир для CLV; ставку по ней человек не поставит, если у него нет счёта);
 - любой букмекер вне `docs/BOOKMAKERS.json` → флаг `bookmaker_not_available`.
-Эти кандидаты остаются в `value_candidates.json` (файл пишет скрипт, ты его не правишь), но флаги идут в сводку, а `risk-manager` накладывает на них вето через `risk_overrides.json`.
+Эти кандидаты остаются в `value_candidates.json` (файл пишет скрипт, ты его не правишь), но флаги идут в сводку. `risk-manager`: агрегаторы вето всегда; недоступный букмекер — вето при `real_money: true`, в режиме БУМАГА только метка.
 
 Скрипт ставит `suspect_edge: true`, если:
 - `edge > 0.15` — на ликвидных рынках топ-лиг устойчивое преимущество в 15% недостижимо. Почти всегда это ошибка данных

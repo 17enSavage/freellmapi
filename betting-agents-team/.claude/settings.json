@@ -3,10 +3,7 @@
     "allow": [
       "Bash(python3 pipeline/*)",
       "Bash(ls *)",
-      "Bash(cat *)",
-      "Bash(grep *)",
       "Bash(tail *)",
-      "Bash(head *)",
       "Bash(wc *)",
       "Bash(test *)",
       "Read(data/**)",
@@ -44,7 +41,9 @@
       "Bash(git push*)",
       "Bash(rm -rf *)",
       "Bash(curl * | bash)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Read(**/.env)",
+      "Bash(*.env*)"
     ]
   }
 }

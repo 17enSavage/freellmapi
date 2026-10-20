@@ -26,13 +26,13 @@ python3 pipeline/db.py upcoming --days 3
 1. Сгенерировать `RUN_ID` = текущая дата-время в UTC в формате `2026-10-19T07:00:00Z`
 2. Создать каталог `data/raw/{RUN_ID}/`
 3. Прочитать `db.bankroll` → узнать текущий режим (`normal|caution|reduced|halted`)
-4. **Если режим `halted`** → пропустить этапы 5–6, выполнить только сбор данных, модель и отчёт с пометкой `HALTED: ставки запрещены`. Не вызывать risk-manager.
+4. **Если режим `halted`** → выполнить весь конвейер как обычно, включая шаги 8–9б: `run_pipeline_risk.py` сам отклонит всех кандидатов с `bank_halted` и запишет `bet_slip.json` с пустым `approved`, а GATE_5 проверит, что ставок действительно нет. Отчёт с пометкой `HALTED: ставки запрещены`. (Раньше risk-manager в halted не вызывался, и новый GATE_5 падал бы каждый день с `artifact_missing`.)
 5. Прочитать `docs/STAGE.json` (`{"stage":N,"real_money":bool}`). Нет файла или не читается → считать `real_money=false`, флаг `stage_file_missing`. Режим прогона: `real_money=false` → **БУМАГА**, иначе **РЕАЛЬНЫЕ**. Передавать режим в `reporter`.
 6. Проверка проводки LLM-этапов (один раз): `test -f pipeline/load_llm_artifacts.py`. Файла нет → флаг `llm_loader_missing`: этапы 5–7 (research-lead, GATE_3, загрузка множителей) **пропускаются**, множители = 1.00, в отчёт идёт `qualitative_unavailable`. Без загрузчика `model.py adjust` не видит `qualitative.json` вообще (читает таблицу `adjustments`), и тратить токены на аналитиков бессмысленно.
 7. Записать в `logs/delegation.jsonl`: `{"ts":...,"run_id":RUN_ID,"parent":"human","child":"pipeline-orchestrator","task":"daily","mode":<режим>}`
 
 ## Шаг 1. Данные → делегировать `data-scout`
-Передать в задаче: `RUN_ID`, список лиг, диапазон дат, режим (полный/инкрементальный).
+Передать в задаче: `RUN_ID`, список лиг, диапазон дат, режим (полный/инкрементальный), `ASOF` и `llm_enabled` (`false`, если стоит `llm_loader_missing`: тогда `data-scout` не вызывает `collector-news` и `collector-lineups`, а `news`/`lineups` в `sources_status` = `skipped`).
 Ждать возврата JSON-сводки с путём к `data_bundle.json`.
 
 ## Шаг 2. GATE 1 → делегировать `contract-validator`
@@ -106,7 +106,7 @@ RUN_ID: ...
 - Давать человеку совет «я бы поставил на...» — твоя роль техническая
 - Продолжать прогон при проваленном gate, «потому что данные в целом неплохие»
 - Переводить `docs/STAGE.json` в `real_money=true` или менять его вообще (только человек)
-- Если `real_money=true`, а последняя `brier_delta` модели против рынка > +0.003 (модель хуже рынка) — это **нарушение стадии**: остановить прогон на шаге 0, флаг `stage_violation`, вопрос человеку (`status: blocked`)
+- Если `real_money=true`, а последняя `brier_delta` модели против рынка (поле `overall.brier_delta` самого свежего файла `data/backtest/walkforward_*.json`; файла нет → считать нарушением нельзя, но флаг `no_backtest_on_record` обязателен) > +0.003 (модель хуже рынка) — это **нарушение стадии**: остановить прогон на шаге 0, флаг `stage_violation`, вопрос человеку (`status: blocked`)
 
 # ФОРМАТ ОТВЕТА
 
